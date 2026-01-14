@@ -6,7 +6,7 @@ part of 'playground_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$activeKidsHash() => r'42c765d45fc8ac0fe1329253305eecb34b591b04';
+String _$activeKidsHash() => r'297e48a9d48eb8b5ab1381028403b7a88c41a0e6';
 
 /// See also [ActiveKids].
 @ProviderFor(ActiveKids)

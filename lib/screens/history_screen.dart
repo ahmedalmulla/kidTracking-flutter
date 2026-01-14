@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:gap/gap.dart';
 import '../models/kid.dart';
 import '../services/persistence_service.dart';
 import '../services/report_service.dart';
+import '../providers/playground_provider.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -27,19 +29,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() {
       _isLoading = true;
     });
-    // We want to see ALL kids for that date, not just active or completed?
-    // User requested "see checkout kids", but usually history implies everything for that day.
-    // PersistenceService.getKidsForDate returns everything matching the date.
-    final kids = PersistenceService.getKidsForDate(_selectedDate);
-    // Filter only completed? "see checkout kids". 
-    // Let's show all but distinguish them, or filter. 
-    // Usually "History" implies past records. 
-    // Let's show completed ones primarily, or all.
-    // User said "see checkout kids".
-    final checkoutKids = kids.where((k) => k.isCompleted).toList();
+    
+    // Show kids for selected date
+    List<Kid> kids = PersistenceService.getKidsForDate(_selectedDate);
+    kids = kids.where((k) => k.isCompleted).toList();
+    kids.sort((a, b) => b.checkInTime.compareTo(a.checkInTime));
     
     setState(() {
-      _kids = checkoutKids;
+      _kids = kids;
       _isLoading = false;
     });
   }
@@ -51,7 +48,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       firstDate: DateTime(2023),
       lastDate: DateTime.now(),
     );
-    if (picked != null && picked != _selectedDate) {
+    if (picked != null) {
       setState(() {
         _selectedDate = picked;
       });
@@ -87,11 +84,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_today),
+            tooltip: 'Filter by Date',
             onPressed: _pickDate,
           ),
           IconButton(
              icon: const Icon(Icons.email),
-             tooltip: "Send Report for this date",
+             tooltip: "Send Report",
              onPressed: _kids.isEmpty ? null : _sendReport,
           )
         ],
@@ -120,25 +118,82 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _kids.isEmpty
                     ? Center(
-                        child: Text("No checked out kids found for this date.",
-                            style: Theme.of(context).textTheme.bodyLarge))
+                        child: Text(
+                          "No checked out kids found for this date.",
+                          style: Theme.of(context).textTheme.bodyLarge,
+                          textAlign: TextAlign.center,
+                        ))
                     : ListView.separated(
                         itemCount: _kids.length,
                         separatorBuilder: (context, index) => const Divider(),
                         itemBuilder: (context, index) {
                           final kid = _kids[index];
+                          final hasTimeLeft = kid.remainingTimeAtCheckout.inSeconds > 0;
+                          
                           return ListTile(
                             leading: CircleAvatar(
                               child: Text(kid.name.substring(0, 1).toUpperCase()),
                             ),
                             title: Text(kid.name),
-                            subtitle: Text("Phone: ${kid.parentPhone}"),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("In: ${DateFormat('HH:mm').format(kid.checkInTime)}"),
-                                Text("${kid.durationMinutes} min"),
+                                Text("Phone: ${kid.parentPhone}"),
+                                Text(
+                                  "Date: ${DateFormat('yyyy-MM-dd').format(kid.checkInTime)}",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                if (hasTimeLeft)
+                                  Text(
+                                    "Time left: ${kid.remainingTimeAtCheckout.inMinutes}:${(kid.remainingTimeAtCheckout.inSeconds % 60).toString().padLeft(2, '0')}",
+                                    style: TextStyle(
+                                      color: Colors.green.shade700,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text("In: ${DateFormat('HH:mm').format(kid.checkInTime)}"),
+                                    Text("${kid.durationMinutes} min"),
+                                  ],
+                                ),
+                                if (hasTimeLeft) ...[
+                                  const Gap(12),
+                                  IconButton(
+                                    onPressed: () async {
+                                      // Import the provider
+                                      final container = ProviderScope.containerOf(context);
+                                      await container.read(activeKidsProvider.notifier).resumeKid(kid.id);
+                                      
+                                      // Reload data to refresh the list
+                                      _loadData();
+                                      
+                                      // Show confirmation
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('${kid.name} resumed and moved to dashboard'),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(Icons.play_circle_filled),
+                                    color: Colors.green,
+                                    tooltip: 'Resume / Check-in',
+                                  ),
+                                ],
                               ],
                             ),
                           );

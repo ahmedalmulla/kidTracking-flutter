@@ -23,13 +23,16 @@ class KidAdapter extends TypeAdapter<Kid> {
       durationMinutes: fields[3] as int,
       checkInTime: fields[4] as DateTime,
       isCompleted: fields[5] as bool,
+      pausedAt: fields[6] as DateTime?,
+      totalPausedDurationSeconds: (fields[7] as int?) ?? 0,
+      completedAt: fields[8] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Kid obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +44,13 @@ class KidAdapter extends TypeAdapter<Kid> {
       ..writeByte(4)
       ..write(obj.checkInTime)
       ..writeByte(5)
-      ..write(obj.isCompleted);
+      ..write(obj.isCompleted)
+      ..writeByte(6)
+      ..write(obj.pausedAt)
+      ..writeByte(7)
+      ..write(obj.totalPausedDurationSeconds)
+      ..writeByte(8)
+      ..write(obj.completedAt);
   }
 
   @override

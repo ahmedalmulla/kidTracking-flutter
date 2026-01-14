@@ -35,6 +35,10 @@ class PersistenceService {
     return _box.values.where((k) => !k.isCompleted).toList();
   }
 
+  static List<Kid> getAllKids() {
+    return _box.values.toList();
+  }
+
   static List<Kid> getKidsForDate(DateTime date) {
     return _box.values.where((k) {
       return k.checkInTime.year == date.year &&

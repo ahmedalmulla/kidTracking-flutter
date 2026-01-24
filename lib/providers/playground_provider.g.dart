@@ -6,7 +6,22 @@ part of 'playground_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$activeKidsHash() => r'297e48a9d48eb8b5ab1381028403b7a88c41a0e6';
+String _$currentZoneHash() => r'395cf1ea6a560a1ef5cf9c8f756991813192ee9e';
+
+/// See also [CurrentZone].
+@ProviderFor(CurrentZone)
+final currentZoneProvider =
+    AutoDisposeNotifierProvider<CurrentZone, String>.internal(
+  CurrentZone.new,
+  name: r'currentZoneProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$currentZoneHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef _$CurrentZone = AutoDisposeNotifier<String>;
+String _$activeKidsHash() => r'16b9ea4823fcafbf41bade66eb160a3b65afb2ac';
 
 /// See also [ActiveKids].
 @ProviderFor(ActiveKids)

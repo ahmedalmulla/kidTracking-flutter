@@ -69,7 +69,7 @@ class PersistenceService {
   static TimeOfDay? getReportScheduleTime() {
     final hour = settingsBox.get('report_hour');
     final minute = settingsBox.get('report_minute');
-    if (hour == null || minute == null) return null;
+    if (hour is! int || minute is! int) return null;
     return TimeOfDay(hour: hour, minute: minute);
   }
 
@@ -88,12 +88,33 @@ class PersistenceService {
   }
   
   static Map<String, dynamic> getSmtpSettings() {
+    final port = settingsBox.get('smtp_port');
     return {
       'email': settingsBox.get('smtp_email', defaultValue: ''),
       'password': settingsBox.get('smtp_password', defaultValue: ''),
       'host': settingsBox.get('smtp_host', defaultValue: 'smtp.gmail.com'),
-      'port': settingsBox.get('smtp_port', defaultValue: 587),
+      'port': (port is int) ? port : 587,
       'toEmail': settingsBox.get('recipient_email', defaultValue: ''),
     };
+  }
+
+  // Zone Helpers
+  static Future<void> saveSelectedZone(String zone) async {
+    await settingsBox.put('current_zone', zone);
+  }
+
+  static String? getSelectedZone() {
+    return settingsBox.get('current_zone');
+  }
+
+  // Duration Helpers
+  static Future<void> saveCustomDurations(List<int> durations) async {
+    await settingsBox.put('custom_durations', durations);
+  }
+
+  static List<int> getCustomDurations() {
+    final List<dynamic>? stored = settingsBox.get('custom_durations');
+    if (stored == null) return [30, 60, 90, 120];
+    return stored.cast<int>().toList();
   }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import '../services/persistence_service.dart';
 import '../services/report_service.dart';
+import '../providers/playground_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,6 +18,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _hostController = TextEditingController();
   final _portController = TextEditingController();
   final _recipientController = TextEditingController();
+  final _durationsController = TextEditingController();
   TimeOfDay? _reportTime;
   bool _isLoading = false;
 
@@ -33,6 +36,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _portController.text = settings['port'].toString();
     _recipientController.text = settings['toEmail'];
     _reportTime = PersistenceService.getReportScheduleTime();
+    
+    final durations = PersistenceService.getCustomDurations();
+    _durationsController.text = durations.join(', ');
   }
 
   Future<void> _pickTime() async {
@@ -58,6 +64,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       port: int.tryParse(_portController.text.trim()) ?? 587,
       toEmail: _recipientController.text.trim(),
     );
+    
+    // Save durations
+    try {
+      final List<int> durations = _durationsController.text
+          .split(',')
+          .map((e) => int.tryParse(e.trim()))
+          .where((e) => e != null)
+          .cast<int>()
+          .toList();
+      if (durations.isNotEmpty) {
+        await PersistenceService.saveCustomDurations(durations);
+      }
+    } catch (e) {
+      debugPrint("Error saving durations: $e");
+    }
+
+    if (_reportTime != null) {
+      await PersistenceService.saveReportScheduleTime(_reportTime!.hour, _reportTime!.minute);
+    }
     if (_reportTime != null) {
       await PersistenceService.saveReportScheduleTime(_reportTime!.hour, _reportTime!.minute);
     }
@@ -136,6 +161,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: const InputDecoration(labelText: "Recipient Email(s)"),
                   ),
                   const Gap(24),
+                  const Gap(24),
+                  const Divider(),
+                  const Gap(24),
+                  Text("Duration Shortcuts", style: Theme.of(context).textTheme.headlineSmall),
+                  const Gap(8),
+                  const Text("Customize time buttons (comma separated minutes)."),
+                  const Gap(16),
+                  TextField(
+                    controller: _durationsController,
+                    decoration: const InputDecoration(labelText: "Durations (e.g. 30, 60, 90, 120)"),
+                  ),
+                  const Gap(24),
                   const Divider(),
                   const Gap(24),
                   Text("Schedule", style: Theme.of(context).textTheme.headlineSmall),
@@ -145,6 +182,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: Text(_reportTime != null ? _reportTime!.format(context) : "Not Set (Default 9:00 PM)"),
                     trailing: const Icon(Icons.access_time),
                     onTap: _pickTime,
+                  ),
+                  const Gap(24),
+                  const Divider(),
+                  const Gap(24),
+                  Text("Playground Zone", style: Theme.of(context).textTheme.headlineSmall),
+                  const Gap(8),
+                  const Text("Change the active zone for new registrations."),
+                  const Gap(16),
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final currentZone = ref.watch(currentZoneProvider);
+                      return Wrap(
+                        spacing: 8.0,
+                        children: ['Trampoline', 'Ninja Course', 'Climbing'].map((zone) {
+                          return ChoiceChip(
+                            label: Text(zone),
+                            selected: currentZone == zone,
+                            onSelected: (selected) {
+                              if (selected) {
+                                PersistenceService.saveSelectedZone(zone);
+                                ref.read(currentZoneProvider.notifier).setZone(zone);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Zone changed to $zone')),
+                                );
+                              }
+                            },
+                          );
+                        }).toList(),
+                      );
+                    },
                   ),
                   const Gap(32),
                   Row(
@@ -165,19 +232,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Gap(24),
                   const Divider(),
-                  Center(
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text("Reset Daily Report Status (Enable sending again today)"),
-                      onPressed: () async {
-                         await PersistenceService.settingsBox.delete('last_report_date');
-                         if (mounted) {
-                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status Reset. Background task can now send again.')));
-                         }
-                      },
-                      style: TextButton.styleFrom(foregroundColor: Colors.orange),
-                    ),
-                  )
                 ],
               ),
             ),

@@ -5,6 +5,7 @@ import 'services/background_service.dart'; // We will create this next
 import 'services/persistence_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
+import 'screens/zone_selection_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,10 +28,12 @@ class KidPlaygroundApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final initialZone = PersistenceService.getSelectedZone();
+    
     return MaterialApp(
       title: 'Playground Manager',
       theme: AppTheme.lightTheme,
-      home: const HomeScreen(),
+      home: initialZone == null ? ZoneSelectionScreen() : HomeScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

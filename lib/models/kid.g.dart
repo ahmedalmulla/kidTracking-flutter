@@ -20,19 +20,20 @@ class KidAdapter extends TypeAdapter<Kid> {
       id: fields[0] as String?,
       name: fields[1] as String,
       parentPhone: fields[2] as String,
-      durationMinutes: fields[3] as int,
+      durationMinutes: fields[3] == null ? 60 : fields[3] as int,
       checkInTime: fields[4] as DateTime,
-      isCompleted: fields[5] as bool,
+      isCompleted: fields[5] == null ? false : fields[5] as bool,
       pausedAt: fields[6] as DateTime?,
-      totalPausedDurationSeconds: (fields[7] as int?) ?? 0,
+      totalPausedDurationSeconds: fields[7] == null ? 0 : fields[7] as int,
       completedAt: fields[8] as DateTime?,
+      zone: fields[9] == null ? 'Trampoline' : fields[9] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Kid obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class KidAdapter extends TypeAdapter<Kid> {
       ..writeByte(7)
       ..write(obj.totalPausedDurationSeconds)
       ..writeByte(8)
-      ..write(obj.completedAt);
+      ..write(obj.completedAt)
+      ..writeByte(9)
+      ..write(obj.zone);
   }
 
   @override

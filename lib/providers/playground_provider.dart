@@ -6,6 +6,18 @@ import '../services/persistence_service.dart';
 part 'playground_provider.g.dart';
 
 @riverpod
+class CurrentZone extends _$CurrentZone {
+  @override
+  String build() {
+    return PersistenceService.getSelectedZone() ?? 'Trampoline';
+  }
+
+  void setZone(String zone) {
+    state = zone;
+  }
+}
+
+@riverpod
 class ActiveKids extends _$ActiveKids {
   @override
   List<Kid> build() {
@@ -14,11 +26,13 @@ class ActiveKids extends _$ActiveKids {
   }
 
   Future<void> addKid(String name, String phone, int durationMinutes) async {
+    final zone = ref.read(currentZoneProvider);
     final kid = Kid(
       name: name,
       parentPhone: phone,
       durationMinutes: durationMinutes,
       checkInTime: DateTime.now(),
+      zone: zone,
     );
     await PersistenceService.addKid(kid);
     state = PersistenceService.getActiveKids();

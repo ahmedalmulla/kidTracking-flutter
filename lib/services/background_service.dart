@@ -14,8 +14,8 @@ void callbackDispatcher() {
     try {
       await PersistenceService.init();
       debugPrint("[BG] Persistence initialized");
-    } catch (e) {
-      debugPrint("[BG] Persistence init failed: $e");
+    } catch (e, stack) {
+      debugPrint("[BG] Persistence init failed: $e\n$stack");
       return Future.value(false);
     }
     
@@ -29,31 +29,34 @@ void callbackDispatcher() {
           if (schedule == null) {
             // Default 9 PM
             if (now.hour >= 21) shouldSend = true;
-            debugPrint("[BG] No schedule. Now: ${now.hour}. ShouldSend: $shouldSend");
+            debugPrint("[BG] No schedule found in settings. Defaulting to 9 PM rule. Current hour: ${now.hour}. ShouldSend: $shouldSend");
           } else {
              final scheduledTime = DateTime(now.year, now.month, now.day, schedule.hour, schedule.minute);
-             // Allow a grace period? No, just "isAfter" is fine for "Has time passed?"
              if (now.isAfter(scheduledTime)) {
                shouldSend = true;
              }
-             debugPrint("[BG] Schedule: ${schedule.hour}:${schedule.minute} ($scheduledTime). Now: $now. ShouldSend: $shouldSend");
+             debugPrint("[BG] Schedule found: ${schedule.hour}:${schedule.minute}. Current time: $now. ShouldSend: $shouldSend");
           }
 
           if (shouldSend) {
-             if (await ReportService.isReportSentToday()) {
-               debugPrint("[BG] Report already sent today. Skipping.");
+             final alreadySent = await ReportService.isReportSentToday();
+             if (alreadySent) {
+               debugPrint("[BG] Report already sent today according to settings. Skipping.");
              } else {
-               debugPrint("[BG] Sending daily report...");
+               debugPrint("[BG] Attempting to send daily report...");
                await ReportService.sendDailyReport();
-               debugPrint("[BG] Daily report sent successfully.");
+               debugPrint("[BG] Daily report task finished successfully.");
              }
           } else {
-            debugPrint("[BG] Not time yet.");
+            debugPrint("[BG] Not time to send report yet.");
           }
-        } catch (e) {
-          debugPrint("[BG] Error sending report: $e");
+        } catch (e, stack) {
+          debugPrint("[BG] Error during report task: $e\n$stack");
           return Future.value(false);
         }
+        break;
+      default:
+        debugPrint("[BG] Unknown task: $task");
         break;
     }
     return Future.value(true);

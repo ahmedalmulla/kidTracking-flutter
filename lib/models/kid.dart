@@ -14,23 +14,25 @@ class Kid extends HiveObject {
   @HiveField(2)
   final String parentPhone;
 
-  @HiveField(3)
+  @HiveField(3, defaultValue: 60)
   final int durationMinutes;
 
   @HiveField(4)
   final DateTime checkInTime;
 
-  @HiveField(5)
+  @HiveField(5, defaultValue: false)
   bool isCompleted;
 
   @HiveField(6)
   DateTime? pausedAt;
 
-  @HiveField(7)
+  @HiveField(7, defaultValue: 0)
   int totalPausedDurationSeconds;
-
   @HiveField(8)
   DateTime? completedAt;
+
+  @HiveField(9, defaultValue: 'Trampoline')
+  final String zone;
 
   Kid({
     String? id,
@@ -42,36 +44,37 @@ class Kid extends HiveObject {
     this.pausedAt,
     this.totalPausedDurationSeconds = 0,
     this.completedAt,
+    required this.zone,
   }) : id = id ?? const Uuid().v4();
 
   DateTime get endTime => checkInTime.add(Duration(minutes: durationMinutes, seconds: totalPausedDurationSeconds));
   
+  Duration get elapsedTime {
+    // 1. If paused, duration stopped accumulating at pausedAt
+    //    (Whether completed or not, if pausedAt exists and wasn't cleared, it implies we paused then maybe completed)
+    if (pausedAt != null) {
+       return pausedAt!.difference(checkInTime) - Duration(seconds: totalPausedDurationSeconds);
+    }
+    
+    // 2. If completed (and not paused logic above), duration stopped at completedAt
+    if (completedAt != null) {
+      return completedAt!.difference(checkInTime) - Duration(seconds: totalPausedDurationSeconds);
+    }
+    
+    // 3. Otherwise (Active and running), duration is until Now
+    return DateTime.now().difference(checkInTime) - Duration(seconds: totalPausedDurationSeconds);
+  }
+
   Duration get remainingTime {
     if (isCompleted) return Duration.zero;
     
+    // Open Duration (Unlimited)
+    if (durationMinutes == 0) {
+      return const Duration(days: 365); // Effectively infinite so no alert
+    }
+    
     // If currently paused, strict remaining time is calculated from the pause point
     if (pausedAt != null) {
-      // Logic: EndTime is fixed relative to checkIn + totalPaused (so far).
-      // But if we are paused, time is effectively stopped.
-      // Actually simpler:
-      // TimePassed = (Now - CheckIn) - TotalPaused
-      // Remaining = Duration - TimePassed
-      // BUT if paused, 'Now' effectively stops moving regarding the session.
-      
-      // Let's use:
-      // Effective CheckIn = CheckIn + TotalPaused
-      // EndTime = Effective CheckIn + Duration
-      
-      // If paused, we don't count time since pausedAt.
-      final now = DateTime.now();
-      final pauseDurationSoFar = now.difference(pausedAt!);
-      // We don't verify if it's paused in the getter, we just return what it *shoud* be. 
-      // If paused, the visual timer should stay static.
-      // The `endTime` getter assumes we add totalPausedDurationSeconds.
-      // If we are currently paused, `totalPausedDurationSeconds` hasn't been updated yet (it updates on resume).
-      // So visual remaining time should be: 
-      // EndTime (calculated with known totalPaused) - PausedAt
-      
       final currentEndTime = checkInTime.add(Duration(minutes: durationMinutes, seconds: totalPausedDurationSeconds));
       if (pausedAt!.isAfter(currentEndTime)) return Duration.zero;
       return currentEndTime.difference(pausedAt!);

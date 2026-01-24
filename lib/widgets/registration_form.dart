@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import '../providers/playground_provider.dart';
+import '../services/persistence_service.dart';
 
 class RegistrationView extends ConsumerStatefulWidget {
   const RegistrationView({super.key});
@@ -16,6 +17,25 @@ class _RegistrationViewState extends ConsumerState<RegistrationView> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   int _selectedDuration = 60; // Default
+  List<int> _durationOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDurations();
+  }
+  
+  void _loadDurations() {
+    final custom = PersistenceService.getCustomDurations();
+    setState(() {
+      _durationOptions = custom.isNotEmpty ? custom : [30, 60, 90, 120];
+      if (!_durationOptions.contains(_selectedDuration) && _selectionDuration != 0) {
+        _selectedDuration = _durationOptions.first;
+      }
+    });
+  }
+
+  int get _selectionDuration => _selectedDuration; // Helper
 
   @override
   void dispose() {
@@ -40,7 +60,7 @@ class _RegistrationViewState extends ConsumerState<RegistrationView> {
       _nameController.clear();
       _phoneController.clear();
       setState(() {
-        _selectedDuration = 60;
+        _selectedDuration = _durationOptions.isNotEmpty ? _durationOptions.first : 60;
       });
     }
   }
@@ -89,21 +109,48 @@ class _RegistrationViewState extends ConsumerState<RegistrationView> {
                       },
                     ),
                     const Gap(24),
-                    Text("Duration (Minutes)", style: Theme.of(context).textTheme.titleMedium),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Duration", style: Theme.of(context).textTheme.titleMedium),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, size: 16), 
+                          onPressed: _loadDurations,
+                          tooltip: 'Reload from settings',
+                        ),
+                      ],
+                    ),
                     const Gap(8),
                     Wrap(
                       spacing: 8.0,
-                      children: [30, 60, 90, 120].map((minutes) {
-                        return ChoiceChip(
-                          label: Text('$minutes mins'),
-                          selected: _selectedDuration == minutes,
+                      runSpacing: 8.0,
+                      children: [
+                        ..._durationOptions.map((minutes) {
+                          return ChoiceChip(
+                            label: Text('$minutes mins'),
+                            selected: _selectedDuration == minutes,
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() => _selectedDuration = minutes);
+                              }
+                            },
+                          );
+                        }),
+                        ChoiceChip(
+                          label: const Text('Open'),
+                          selected: _selectedDuration == 0,
                           onSelected: (selected) {
                             if (selected) {
-                              setState(() => _selectedDuration = minutes);
+                              setState(() => _selectedDuration = 0);
                             }
                           },
-                        );
-                      }).toList(),
+                          selectedColor: Colors.blue.shade100,
+                          labelStyle: TextStyle(
+                            color: _selectedDuration == 0 ? Colors.blue.shade900 : null,
+                            fontWeight: _selectedDuration == 0 ? FontWeight.bold : null,
+                          ),
+                        ),
+                      ],
                     ),
                     const Gap(32),
                     ElevatedButton(

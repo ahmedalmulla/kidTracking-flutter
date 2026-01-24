@@ -29,13 +29,8 @@ class ReportService {
     final now = DateTime.now();
     final reportDate = date ?? now;
     
-    // Check send status only if not test and reporting for TODAY
-    final isToday = reportDate.year == now.year && reportDate.month == now.month && reportDate.day == now.day;
-
-    if (!isTest && isToday && await isReportSentToday()) {
-      print("Report already sent today.");
-      return;
-    }
+    // Check send status: LIMIT REMOVED per user request
+    // Users can now send multiple reports per day.
     
     final settings = PersistenceService.getSmtpSettings();
     final String username = overrideEmail ?? settings['email'];
@@ -49,29 +44,23 @@ class ReportService {
     }
 
     // Combined active kids (if today) and history kids for that date
-    // Or simpler: PersistenceService should return all kids for that date from history?
-    // Actually, persistence service getKidsForDate might only look at history?
-    // Let's assume getHistoryKids handles it or we merge.
-    // Ideally we want ALL kids checked in on that date.
-    
-    // We already have getKidsForDate in PersistenceService but let's check its implementation.
-    // It checks _box.values. 
-    // If we changed checkout to NOT delete, then _box has everything.
-    // Wait, did I change checkout to NOT delete? 
-    // I need to verify that in the next step.
-    // For now assuming getKidsForDate returns all kids (active + completed) for that date.
+    // PersistenceService.getKidsForDate returns all kids (active + completed) for that date.
     final kids = PersistenceService.getKidsForDate(reportDate);
     
     // Generate CSV
     final List<List<dynamic>> rows = [];
-    rows.add(["Name", "Parent Phone", "Check In Time", "Duration (min)", "Status"]);
+    rows.add(["Name", "Parent Phone", "Check In Time", "Check Out Time", "Duration (min)", "Zone", "Status"]);
     
     for (var kid in kids) {
+      final checkOutTime = kid.completedAt != null ? DateFormat('HH:mm').format(kid.completedAt!) : "-";
+      final duration = kid.durationMinutes == 0 ? kid.elapsedTime.inMinutes : kid.durationMinutes;
       rows.add([
         kid.name,
         kid.parentPhone,
         DateFormat('HH:mm').format(kid.checkInTime),
-        kid.durationMinutes,
+        checkOutTime,
+        duration,
+        kid.zone,
         kid.isCompleted ? "Completed" : "Active"
       ]);
     }
@@ -104,10 +93,7 @@ class ReportService {
     try {
       final sendReport = await send(message, smtpServer);
       print('Message sent: ' + sendReport.toString());
-      // Only mark as sent if it's NOT a test and it IS for today
-      if (!isTest && isToday) {
-        await PersistenceService.settingsBox.put('last_report_date', now.toIso8601String());
-      }
+      // No longer marking as sent since limit is removed
     } on MailerException catch (e) {
       print('Message not sent. \n' + e.toString());
       rethrow;

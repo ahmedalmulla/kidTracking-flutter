@@ -41,24 +41,51 @@ class _KidTimerCardState extends ConsumerState<KidTimerCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isOpenDuration = widget.kid.durationMinutes == 0;
     final remaining = widget.kid.remainingTime;
-    final totalSeconds = widget.kid.durationMinutes * 60;
+    final elapsed = widget.kid.elapsedTime;
+    
+    final totalSeconds = isOpenDuration ? 1 : widget.kid.durationMinutes * 60;
     final remainingSeconds = remaining.inSeconds > 0 ? remaining.inSeconds : 0;
     final isPaused = widget.kid.pausedAt != null;
     
     // Progress calculation
-    double percent = remainingSeconds / totalSeconds;
+    double percent = isOpenDuration ? 1.0 : remainingSeconds / totalSeconds;
     if (percent < 0) percent = 0;
     if (percent > 1) percent = 1;
 
     // Color logic
     Color progressColor = Colors.green;
-    if (remaining.inMinutes < 5) progressColor = Colors.orange;
-    if (remaining.inSeconds == 0) progressColor = Colors.red;
+    if (isOpenDuration) {
+      progressColor = Colors.blue;
+    } else {
+      if (remaining.inMinutes < 5) progressColor = Colors.orange;
+      if (remaining.inSeconds == 0) progressColor = Colors.red;
+    }
+
+    // Display Text
+    String timerText;
+    String labelText;
+    
+    if (isOpenDuration) {
+      // Show Elapsed
+      final hours = elapsed.inHours;
+      final minutes = elapsed.inMinutes % 60;
+      final seconds = elapsed.inSeconds % 60;
+      if (hours > 0) {
+        timerText = "$hours:${minutes.toString().padLeft(2, '0')}";
+      } else {
+        timerText = "$minutes:${seconds.toString().padLeft(2, '0')}";
+      }
+      labelText = "Elapsed";
+    } else {
+      timerText = "${remaining.inMinutes}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}";
+      labelText = "Left";
+    }
 
     return Card(
       elevation: 4,
-      color: remaining.inSeconds == 0 
+      color: (!isOpenDuration && remaining.inSeconds == 0)
           ? Colors.red.shade50 
           : isPaused 
               ? Colors.grey.shade100 
@@ -77,15 +104,15 @@ class _KidTimerCardState extends ConsumerState<KidTimerCard> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    "${remaining.inMinutes}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}",
+                    timerText,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold, 
                       fontSize: 14.0,
                     ),
                   ),
-                  const Text(
-                    "Left", 
-                    style: TextStyle(fontSize: 9, color: Colors.grey),
+                  Text(
+                    labelText, 
+                    style: const TextStyle(fontSize: 9, color: Colors.grey),
                   ),
                 ],
               ),

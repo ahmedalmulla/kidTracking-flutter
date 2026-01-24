@@ -164,8 +164,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text("In: ${DateFormat('HH:mm').format(kid.checkInTime)}"),
-                                    Text("${kid.durationMinutes} min"),
+                                    Text("In: ${DateFormat('HH:mm').format(kid.checkInTime)}   Out: ${kid.completedAt != null ? DateFormat('HH:mm').format(kid.completedAt!) : '-'}"),
+                                    Text("${kid.durationMinutes == 0 ? '${kid.elapsedTime.inMinutes} min (Open)' : '${kid.durationMinutes} min'}"),
                                   ],
                                 ),
                                 if (hasTimeLeft) ...[

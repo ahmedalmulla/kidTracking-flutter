@@ -53,15 +53,40 @@ class ReportService {
     
     for (var kid in kids) {
       final checkOutTime = kid.completedAt != null ? DateFormat('HH:mm').format(kid.completedAt!) : "-";
-      final duration = kid.durationMinutes == 0 ? kid.elapsedTime.inMinutes : kid.durationMinutes;
+      
+      String durationStr;
+      if (kid.durationMinutes == 0) {
+        durationStr = "${kid.elapsedTime.inMinutes} (Open)";
+      } else {
+        durationStr = "${kid.durationMinutes}";
+      }
+
+      String status;
+      if (!kid.isCompleted) {
+        status = "Active";
+      } else {
+        if (kid.durationMinutes == 0) {
+          status = "Completed";
+        } else {
+          // Check if they completed the full duration
+          // We allow a small buffer e.g. 1 minute if needed, but let's be strict for now or use >= duration - 1
+          // User said "if he completed the full duration".
+          if (kid.elapsedTime.inMinutes >= kid.durationMinutes) {
+             status = "Completed";
+          } else {
+             status = "Incomplete";
+          }
+        }
+      }
+
       rows.add([
         kid.name,
         kid.parentPhone,
         DateFormat('HH:mm').format(kid.checkInTime),
         checkOutTime,
-        duration,
+        durationStr,
         kid.zone,
-        kid.isCompleted ? "Completed" : "Active"
+        status
       ]);
     }
     

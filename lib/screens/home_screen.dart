@@ -21,6 +21,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
   Timer? _globalTimer;
   final Set<String> _alertedKidIds = {};
+  final Map<String, DateTime> _snoozedUntil = {};
 
   @override
   void initState() {
@@ -34,8 +35,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _startGlobalCheck() {
     _globalTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       final activeKids = ref.read(activeKidsProvider);
+      final now = DateTime.now();
+      // debugPrint("Checking active kids: ${activeKids.length}");
+
       for (var kid in activeKids) {
+        // Handle Snooze Expiration
+        if (_snoozedUntil.containsKey(kid.id)) {
+           if (now.isAfter(_snoozedUntil[kid.id]!)) {
+             debugPrint("Snooze expired for ${kid.name}");
+             // Snooze expired, allow re-alert
+             _snoozedUntil.remove(kid.id);
+             _alertedKidIds.remove(kid.id);
+           } else {
+             // Still snoozed, skip
+             // debugPrint("Skipping ${kid.name} (Snoozed)");
+             continue; 
+           }
+        }
+
         if (kid.remainingTime.inSeconds <= 0 && !_alertedKidIds.contains(kid.id)) {
+          debugPrint("Triggering alert for ${kid.name}");
           _showAlert(kid);
           _alertedKidIds.add(kid.id);
         }
@@ -44,24 +63,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _showAlert(dynamic kid) async {
-    // Play sound
+    // Play sound - Try multiple channels to ensure audibility
     try {
-      FlutterRingtonePlayer().playAlarm();
+      // Try aggressive ringing
+      await FlutterRingtonePlayer().play(
+        android: AndroidSounds.ringtone,
+        ios: IosSounds.electronic,
+        looping: true,
+        volume: 1.0,
+      );
     } catch (e) {
       debugPrint("Error playing sound: $e");
+      try {
+        FlutterRingtonePlayer().playNotification();
+      } catch (_) {}
     }
 
-    // Show local notification
-    await NotificationService.showNotification(
-      id: kid.id.hashCode,
-      title: "Time Up!",
-      body: "Time finished for ${kid.name}. Phone: ${kid.parentPhone}",
-    );
+    // Show local notification - WRAPPED IN TRY-CATCH so it doesn't block dialog on failure
+    try {
+      await NotificationService.showNotification(
+        id: kid.id.hashCode,
+        title: "Time Up!",
+        body: "Time finished for ${kid.name}. Phone: ${kid.parentPhone}",
+      );
+    } catch (e) {
+      debugPrint("Error showing notification: $e");
+    }
 
     // Also show dialog if app is in foreground (context valid)
     if (mounted) {
       showDialog(
         context: context,
+        barrierDismissible: false, // Prevent dismissing by tapping outside
         builder: (context) => AlertDialog(
           title: const Text('⚠️ Time Up!'),
           content: Text('Time finished for ${kid.name}.\nPlease inform the parent: ${kid.parentPhone}'),
@@ -70,8 +103,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: () {
                 FlutterRingtonePlayer().stop();
                 Navigator.pop(context);
+                
+                debugPrint("Snoozing ${kid.name} for 30s");
+                // Snooze Logic
+                setState(() {
+                  _snoozedUntil[kid.id] = DateTime.now().add(const Duration(seconds: 30));
+                });
               },
-              child: const Text('OK'),
+              child: const Text('Snooze (30s)'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                FlutterRingtonePlayer().stop();
+                Navigator.pop(context);
+              },
+              child: const Text('Acknowledge'),
             ),
           ],
         ),
